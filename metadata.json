@@ -1,0 +1,5 @@
+{
+  "name": "KamusKita - Web Ready",
+  "description": "Aplikasi kamus cerdas yang siap di-deploy menjadi website mandiri menggunakan Vercel atau Netlify.",
+  "requestFramePermissions": []
+}
