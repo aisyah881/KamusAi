@@ -4,7 +4,7 @@ import { VocabEntry } from './types';
 import { translateAndAnnotate, extractVocabFromSource } from './services/geminiService';
 
 const App: React.FC = () => {
-  // Load data dengan proteksi parsing
+  // Load data dengan proteksi parsing (Fitur Anti-Refresh)
   const [entries, setEntries] = useState<VocabEntry[]>(() => {
     try {
       const saved = localStorage.getItem('kamus_ai_data');
@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const [isImporting, setIsImporting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Simpan ke localStorage setiap ada perubahan (Fitur Anti-Refresh)
   useEffect(() => {
     localStorage.setItem('kamus_ai_data', JSON.stringify(entries));
   }, [entries]);
@@ -95,24 +96,24 @@ const App: React.FC = () => {
   const progressPercentage = total > 0 ? Math.round((memorizedCount / total) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-      {/* Header */}
-      <nav className="bg-white border-b border-slate-200 sticky top-0 z-40 px-4 py-3">
+    <div className="min-h-screen bg-blue-50/30 flex flex-col font-sans">
+      {/* Header - Navy Blue */}
+      <nav className="bg-blue-900 border-b border-blue-800 sticky top-0 z-40 px-4 py-3 shadow-md">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-indigo-200 shadow-lg">
-              <i className="fas fa-brain text-white"></i>
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-blue-500/20 shadow-lg">
+              <i className="fas fa-brain text-blue-900"></i>
             </div>
-            <span className="text-xl font-black text-slate-900 tracking-tight">Kamus<span className="text-indigo-600">Pintar</span></span>
+            <span className="text-xl font-black text-white tracking-tight">Kamus<span className="text-blue-300">Pintar</span></span>
           </div>
           
-          <div className="hidden md:flex items-center gap-6 bg-slate-100 px-4 py-2 rounded-2xl border border-slate-200">
+          <div className="hidden md:flex items-center gap-6 bg-blue-800/50 px-4 py-2 rounded-2xl border border-blue-700">
             <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Hafalan Kamu</span>
+              <span className="text-[10px] font-bold text-blue-300 uppercase">Hafalan Kamu</span>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-slate-700">{memorizedCount}/{total} Kata</span>
-                <div className="w-20 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-indigo-500 transition-all" style={{width: `${progressPercentage}%`}}></div>
+                <span className="text-sm font-bold text-white">{memorizedCount}/{total} Kata</span>
+                <div className="w-20 h-1.5 bg-blue-950 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-400 transition-all" style={{width: `${progressPercentage}%`}}></div>
                 </div>
               </div>
             </div>
@@ -120,7 +121,7 @@ const App: React.FC = () => {
 
           <button 
             onClick={() => setShowImportModal(true)}
-            className="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-indigo-100 transition-colors flex items-center gap-2 border border-indigo-100"
+            className="bg-blue-400 text-blue-950 px-4 py-2 rounded-xl font-bold text-sm hover:bg-blue-300 transition-colors flex items-center gap-2"
           >
             <i className="fas fa-wand-magic-sparkles"></i>
             <span className="hidden sm:inline">Import dari Link</span>
@@ -128,13 +129,13 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      {/* Hero / Input */}
-      <header className="bg-white border-b border-slate-200 py-12 px-4 mb-8">
+      {/* Hero / Input Section - Light Blue Background */}
+      <header className="bg-white border-b border-blue-100 py-12 px-4 mb-8">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-black text-slate-900 mb-4">Tambahkan Kata Baru</h2>
-          <p className="text-slate-500 mb-8">Ketik kata Inggris yang ingin kamu pelajari, AI akan memberikan konteksnya.</p>
+          <h2 className="text-3xl font-black text-blue-900 mb-4">Tambahkan Kata Baru</h2>
+          <p className="text-blue-500/80 mb-8">Ketik kata Inggris yang ingin kamu pelajari, AI akan memberikan konteksnya.</p>
           
-          <div className="flex gap-2 p-2 bg-slate-100 rounded-2xl border border-slate-200 shadow-sm focus-within:ring-2 ring-indigo-500/20 transition-all">
+          <div className="flex gap-2 p-2 bg-blue-50 rounded-2xl border border-blue-200 shadow-sm focus-within:ring-2 ring-blue-500/20 transition-all">
             <input 
               ref={inputRef}
               type="text"
@@ -142,13 +143,13 @@ const App: React.FC = () => {
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddEntry()}
               placeholder="Contoh: Resilience, Sophisticated..."
-              className="flex-grow bg-transparent px-4 py-3 outline-none text-lg font-medium"
+              className="flex-grow bg-transparent px-4 py-3 outline-none text-lg font-medium text-blue-900 placeholder:text-blue-300"
               disabled={isProcessing}
             />
             <button 
               onClick={handleAddEntry}
               disabled={isProcessing || !inputValue.trim()}
-              className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50"
+              className="bg-blue-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-950 active:scale-95 transition-all disabled:opacity-50 shadow-lg shadow-blue-900/20"
             >
               {isProcessing ? <i className="fas fa-spinner fa-spin"></i> : 'Simpan'}
             </button>
@@ -159,40 +160,40 @@ const App: React.FC = () => {
       {/* Table Section */}
       <main className="max-w-6xl w-full mx-auto px-4 pb-20">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="font-bold text-slate-700 flex items-center gap-2">
-            <i className="fas fa-list text-indigo-500"></i>
+          <h3 className="font-bold text-blue-900 flex items-center gap-2">
+            <i className="fas fa-list text-blue-500"></i>
             Daftar Kata ({total})
           </h3>
           {total > 0 && (
-            <button onClick={clearAll} className="text-xs font-bold text-rose-500 hover:underline">Hapus Semua</button>
+            <button onClick={clearAll} className="text-xs font-bold text-rose-500 hover:text-rose-600 hover:underline transition-colors">Hapus Semua</button>
           )}
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-3xl border border-blue-100 shadow-xl shadow-blue-900/5 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-100">
-                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase">Bahasa Inggris</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase">Terjemahan</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase">Keterangan AI</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase text-center">Hafal?</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase text-center">Hapus</th>
+                <tr className="bg-blue-50/50 border-b border-blue-100">
+                  <th className="px-6 py-4 text-xs font-bold text-blue-400 uppercase tracking-wider">Bahasa Inggris</th>
+                  <th className="px-6 py-4 text-xs font-bold text-blue-400 uppercase tracking-wider">Terjemahan</th>
+                  <th className="px-6 py-4 text-xs font-bold text-blue-400 uppercase tracking-wider">Keterangan AI</th>
+                  <th className="px-6 py-4 text-xs font-bold text-blue-400 uppercase tracking-wider text-center">Hafal?</th>
+                  <th className="px-6 py-4 text-xs font-bold text-blue-400 uppercase tracking-wider text-center">Hapus</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-blue-50">
                 {entries.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-20 text-center text-slate-400 italic">
+                    <td colSpan={5} className="py-20 text-center text-blue-300 italic">
                       Belum ada kata. Coba ketik di atas atau import dari link!
                     </td>
                   </tr>
                 ) : (
                   entries.map(entry => (
-                    <tr key={entry.id} className={`group hover:bg-slate-50 transition-colors ${entry.isMemorized ? 'bg-emerald-50/30' : ''}`}>
+                    <tr key={entry.id} className={`group hover:bg-blue-50/30 transition-colors ${entry.isMemorized ? 'bg-blue-50/40' : ''}`}>
                       <td className="px-6 py-5">
                         <div className="flex items-center gap-2">
-                          <span className={`text-lg font-bold ${entry.isMemorized ? 'text-emerald-700 line-through opacity-50' : 'text-slate-900'}`}>
+                          <span className={`text-lg font-bold ${entry.isMemorized ? 'text-blue-300 line-through opacity-50' : 'text-blue-900'}`}>
                             {entry.english}
                           </span>
                           {entry.isNew && (
@@ -201,18 +202,18 @@ const App: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-5">
-                        <span className={`font-semibold ${entry.isLoading ? 'text-slate-300' : 'text-slate-700'}`}>
+                        <span className={`font-semibold ${entry.isLoading ? 'text-blue-200 animate-pulse' : 'text-blue-800'}`}>
                           {entry.indonesian}
                         </span>
                       </td>
                       <td className="px-6 py-5 max-w-xs">
-                        <p className="text-sm text-slate-500 leading-relaxed italic">{entry.note}</p>
+                        <p className="text-sm text-blue-500/80 leading-relaxed italic">{entry.note}</p>
                       </td>
                       <td className="px-6 py-5 text-center">
                         <button 
                           onClick={() => setEntries(prev => prev.map(e => e.id === entry.id ? {...e, isMemorized: !e.isMemorized} : e))}
                           className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                            entry.isMemorized ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300 hover:bg-slate-200'
+                            entry.isMemorized ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : 'bg-blue-50 text-blue-200 hover:bg-blue-100'
                           }`}
                         >
                           <i className="fas fa-check"></i>
@@ -221,7 +222,7 @@ const App: React.FC = () => {
                       <td className="px-6 py-5 text-center">
                         <button 
                           onClick={() => setEntries(prev => prev.filter(e => e.id !== entry.id))}
-                          className="text-slate-300 hover:text-rose-500 transition-colors"
+                          className="text-blue-200 hover:text-rose-500 transition-colors p-2"
                         >
                           <i className="fas fa-trash"></i>
                         </button>
@@ -235,36 +236,37 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Modal Import */}
+      {/* Modal Import - Navy Theme */}
       {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-blue-950/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+            <div className="p-6 border-b border-blue-50 flex justify-between items-center bg-blue-900 text-white">
               <h3 className="text-xl font-bold flex items-center gap-2">
-                <i className="fas fa-wand-magic-sparkles text-indigo-500"></i>
-                Import Cerdas
+                <i className="fas fa-wand-magic-sparkles text-blue-300"></i>
+                Import Cerdas AI
               </h3>
-              <button onClick={() => !isImporting && setShowImportModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => !isImporting && setShowImportModal(false)} className="text-blue-300 hover:text-white transition-colors">
                 <i className="fas fa-times"></i>
               </button>
             </div>
             
             <div className="p-6">
-              <p className="text-sm text-slate-500 mb-4">
-                Tempel link berita (BBC, CNN, dll) atau teks panjang. AI akan memilihkan kata-kata penting untuk kamu pelajari.
+              <p className="text-sm text-blue-600 mb-4 bg-blue-50 p-3 rounded-xl border border-blue-100">
+                <i className="fas fa-info-circle mr-2"></i>
+                Tempel link berita (BBC, CNN) atau teks panjang. AI akan memilihkan kosakata terbaik untuk dipelajari.
               </p>
               <textarea 
                 value={importValue}
                 onChange={(e) => setImportValue(e.target.value)}
-                placeholder="Tempel Link atau Teks di sini..."
-                className="w-full h-40 bg-slate-50 rounded-2xl p-4 border border-slate-200 focus:ring-2 ring-indigo-500/20 outline-none resize-none mb-4 font-medium"
+                placeholder="Tempel Link Artikel atau Paragraf di sini..."
+                className="w-full h-40 bg-blue-50/50 rounded-2xl p-4 border border-blue-100 focus:ring-2 ring-blue-500/20 outline-none resize-none mb-4 font-medium text-blue-900 placeholder:text-blue-300"
                 disabled={isImporting}
               ></textarea>
               
               <div className="flex gap-3">
                 <button 
                   onClick={() => setShowImportModal(false)}
-                  className="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-50 rounded-xl transition-all"
+                  className="flex-1 py-3 font-bold text-blue-400 hover:bg-blue-50 rounded-xl transition-all"
                   disabled={isImporting}
                 >
                   Batal
@@ -272,12 +274,12 @@ const App: React.FC = () => {
                 <button 
                   onClick={handleBulkImport}
                   disabled={isImporting || !importValue.trim()}
-                  className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-200"
+                  className="flex-1 py-3 bg-blue-900 text-white font-bold rounded-xl hover:bg-blue-950 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20"
                 >
                   {isImporting ? (
                     <>
                       <i className="fas fa-circle-notch fa-spin"></i>
-                      Menganalisis...
+                      Menganalisis Link...
                     </>
                   ) : (
                     <>Mulai Import</>
@@ -290,9 +292,9 @@ const App: React.FC = () => {
       )}
 
       {/* Footer Info */}
-      <footer className="text-center py-10 text-slate-400 text-xs font-medium">
-        <p>Data tersimpan otomatis di browsermu.</p>
-        <p className="mt-1 uppercase tracking-widest">Powered by Gemini Pro & Google Search</p>
+      <footer className="mt-auto text-center py-10 text-blue-300 text-xs font-medium">
+        <p>Data tersimpan otomatis di penyimpanan lokal browser.</p>
+        <p className="mt-1 uppercase tracking-widest text-blue-400/60 font-bold">Powered by Gemini 3 & Google Search</p>
       </footer>
     </div>
   );
