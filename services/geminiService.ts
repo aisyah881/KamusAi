@@ -1,7 +1,8 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { AIResponse } from "../types";
+import { AIResponse, BulkImportResponse } from "../types";
 
+// Inisialisasi AI
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 
 export async function translateAndAnnotate(word: string): Promise<AIResponse> {
@@ -15,14 +16,8 @@ export async function translateAndAnnotate(word: string): Promise<AIResponse> {
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            translation: {
-              type: Type.STRING,
-              description: "Terjemahan kata ke Bahasa Indonesia."
-            },
-            note: {
-              type: Type.STRING,
-              description: "Keterangan singkat atau contoh penggunaan dalam Bahasa Indonesia."
-            }
+            translation: { type: Type.STRING },
+            note: { type: Type.STRING }
           },
           required: ["translation", "note"]
         }
@@ -36,9 +31,47 @@ export async function translateAndAnnotate(word: string): Promise<AIResponse> {
     };
   } catch (error) {
     console.error("AI Error:", error);
-    return {
-      translation: "Error",
-      note: "Gagal memuat terjemahan. Periksa koneksi internet Anda."
-    };
+    return { translation: "Error", note: "Gagal memuat terjemahan." };
+  }
+}
+
+export async function extractVocabFromSource(source: string): Promise<BulkImportResponse> {
+  try {
+    const isUrl = source.startsWith('http');
+    const prompt = isUrl 
+      ? `Kunjungi link artikel ini: ${source}. Baca kontennya, identifikasi 5-10 kosakata (vocabulary) Bahasa Inggris yang penting atau tingkat menengah-atas (intermediate/advanced). Berikan daftar kata tersebut beserta terjemahan Indonesia dan penjelasan singkatnya.`
+      : `Baca teks berikut: "${source}". Pilih 5-10 kosakata Bahasa Inggris yang penting untuk dipelajari. Berikan daftar kata tersebut beserta terjemahan Indonesia dan penjelasan singkatnya.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-preview", // Menggunakan Pro untuk analisis konten yang lebih dalam
+      contents: prompt,
+      config: {
+        tools: isUrl ? [{ googleSearch: {} }] : [],
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            words: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  english: { type: Type.STRING },
+                  indonesian: { type: Type.STRING },
+                  note: { type: Type.STRING }
+                },
+                required: ["english", "indonesian", "note"]
+              }
+            }
+          },
+          required: ["words"]
+        }
+      }
+    });
+
+    return JSON.parse(response.text) as BulkImportResponse;
+  } catch (error) {
+    console.error("Bulk Import Error:", error);
+    throw new Error("Gagal mengambil data dari sumber tersebut.");
   }
 }

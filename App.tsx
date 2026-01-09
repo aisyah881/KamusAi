@@ -1,266 +1,229 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { VocabEntry } from './types';
-import { translateAndAnnotate } from './services/geminiService';
+import { translateAndAnnotate, extractVocabFromSource } from './services/geminiService';
 
 const App: React.FC = () => {
-  // Load data from localStorage on initial render
+  // Load data dengan proteksi parsing
   const [entries, setEntries] = useState<VocabEntry[]>(() => {
-    const saved = localStorage.getItem('kamus_ai_data');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('kamus_ai_data');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error("Gagal load data:", e);
+      return [];
+    }
   });
   
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importValue, setImportValue] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Save data to localStorage whenever entries change
   useEffect(() => {
     localStorage.setItem('kamus_ai_data', JSON.stringify(entries));
   }, [entries]);
 
   const handleAddEntry = async () => {
     if (!inputValue.trim() || isProcessing) return;
-
-    const newId = crypto.randomUUID();
     const englishWord = inputValue.trim();
+    const newId = crypto.randomUUID();
     
-    // Optimistic UI: Add placeholder row
-    const newEntry: VocabEntry = {
+    setEntries(prev => [{
       id: newId,
       english: englishWord,
-      indonesian: 'Sedang menerjemahkan...',
+      indonesian: 'Menerjemahkan...',
       isMemorized: false,
-      note: 'Menghubungi AI...',
+      note: 'Memproses...',
       isLoading: true
-    };
-
-    setEntries(prev => [newEntry, ...prev]);
+    }, ...prev]);
+    
     setInputValue('');
     setIsProcessing(true);
 
     try {
       const result = await translateAndAnnotate(englishWord);
-      setEntries(prev => prev.map(entry => 
-        entry.id === newId 
-          ? { ...entry, indonesian: result.translation, note: result.note, isLoading: false }
-          : entry
-      ));
+      setEntries(prev => prev.map(e => e.id === newId ? { ...e, ...result, isLoading: false } : e));
     } catch (error) {
-      setEntries(prev => prev.map(entry => 
-        entry.id === newId 
-          ? { ...entry, indonesian: 'Gagal', note: 'Terjadi kesalahan koneksi.', isLoading: false }
-          : entry
-      ));
+      setEntries(prev => prev.map(e => e.id === newId ? { ...e, indonesian: 'Gagal', isLoading: false } : e));
     } finally {
       setIsProcessing(false);
-      // Autofocus back to input
       inputRef.current?.focus();
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleAddEntry();
-    }
-  };
+  const handleBulkImport = async () => {
+    if (!importValue.trim() || isImporting) return;
+    setIsImporting(true);
 
-  const toggleMemorized = (id: string) => {
-    setEntries(prev => prev.map(entry => 
-      entry.id === id ? { ...entry, isMemorized: !entry.isMemorized } : entry
-    ));
-  };
+    try {
+      const result = await extractVocabFromSource(importValue);
+      const newEntries: VocabEntry[] = result.words.map(w => ({
+        id: crypto.randomUUID(),
+        english: w.english,
+        indonesian: w.indonesian,
+        note: w.note,
+        isMemorized: false,
+        isLoading: false,
+        isNew: true
+      }));
 
-  const removeEntry = (id: string) => {
-    if (window.confirm('Hapus kata ini?')) {
-      setEntries(prev => prev.filter(entry => entry.id !== id));
+      setEntries(prev => [...newEntries, ...prev]);
+      setShowImportModal(false);
+      setImportValue('');
+      
+      // Hapus status 'isNew' setelah 5 detik
+      setTimeout(() => {
+        setEntries(prev => prev.map(e => ({ ...e, isNew: false })));
+      }, 5000);
+      
+    } catch (error) {
+      alert("Maaf, AI gagal mengambil data dari sumber tersebut. Pastikan link dapat diakses publik atau teks tidak kosong.");
+    } finally {
+      setIsImporting(false);
     }
   };
 
   const clearAll = () => {
-    if (window.confirm('Hapus semua daftar kata? Tindakan ini tidak bisa dibatalkan.')) {
-      setEntries([]);
-    }
+    if (confirm('Hapus semua hafalan?')) setEntries([]);
   };
 
-  // Stats calculation
   const total = entries.length;
   const memorizedCount = entries.filter(e => e.isMemorized).length;
   const progressPercentage = total > 0 ? Math.round((memorizedCount / total) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col text-slate-800">
-      {/* Navbar / Header */}
-      <nav className="bg-slate-900 text-white shadow-xl sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-sky-500 p-2 rounded-lg shadow-inner">
-              <i className="fas fa-book-alphabet text-white text-xl"></i>
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+      {/* Header */}
+      <nav className="bg-white border-b border-slate-200 sticky top-0 z-40 px-4 py-3">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-indigo-200 shadow-lg">
+              <i className="fas fa-brain text-white"></i>
             </div>
-            <div>
-              <h1 className="text-2xl font-black tracking-tight">
-                KAMUS<span className="text-sky-400">AI</span>
-              </h1>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Vocabulary Builder</p>
+            <span className="text-xl font-black text-slate-900 tracking-tight">Kamus<span className="text-indigo-600">Pintar</span></span>
+          </div>
+          
+          <div className="hidden md:flex items-center gap-6 bg-slate-100 px-4 py-2 rounded-2xl border border-slate-200">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Hafalan Kamu</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-slate-700">{memorizedCount}/{total} Kata</span>
+                <div className="w-20 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-indigo-500 transition-all" style={{width: `${progressPercentage}%`}}></div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-6 bg-slate-800 px-6 py-2 rounded-full border border-slate-700">
-            <div className="text-center">
-              <span className="block text-[10px] text-slate-400 font-bold uppercase">Progres Hafalan</span>
-              <span className="font-bold text-sky-400">{memorizedCount} / {total}</span>
-            </div>
-            <div className="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-sky-500 transition-all duration-1000" 
-                style={{ width: `${progressPercentage}%` }}
-              ></div>
-            </div>
-            <span className="font-bold text-sm">{progressPercentage}%</span>
-          </div>
+          <button 
+            onClick={() => setShowImportModal(true)}
+            className="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-indigo-100 transition-colors flex items-center gap-2 border border-indigo-100"
+          >
+            <i className="fas fa-wand-magic-sparkles"></i>
+            <span className="hidden sm:inline">Import dari Link</span>
+          </button>
         </div>
       </nav>
 
-      {/* Main Content */}
-      <main className="flex-grow max-w-6xl w-full mx-auto p-4 md:p-8">
-        
-        {/* Search/Add Section */}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8">
-          <label className="block text-sm font-bold text-slate-500 mb-2 ml-1">TAMBAH KATA BARU</label>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-grow group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <i className="fas fa-language text-slate-300 group-focus-within:text-sky-500 transition-colors"></i>
-              </div>
-              <input 
-                ref={inputRef}
-                type="text" 
-                placeholder="Ketik kata Bahasa Inggris (contoh: 'Ambitious')..." 
-                className="w-full pl-11 pr-4 py-4 bg-slate-50 border-2 border-transparent focus:border-sky-500 focus:bg-white rounded-2xl outline-none transition-all text-lg font-medium shadow-inner"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={isProcessing}
-                autoFocus
-              />
-            </div>
+      {/* Hero / Input */}
+      <header className="bg-white border-b border-slate-200 py-12 px-4 mb-8">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-3xl font-black text-slate-900 mb-4">Tambahkan Kata Baru</h2>
+          <p className="text-slate-500 mb-8">Ketik kata Inggris yang ingin kamu pelajari, AI akan memberikan konteksnya.</p>
+          
+          <div className="flex gap-2 p-2 bg-slate-100 rounded-2xl border border-slate-200 shadow-sm focus-within:ring-2 ring-indigo-500/20 transition-all">
+            <input 
+              ref={inputRef}
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddEntry()}
+              placeholder="Contoh: Resilience, Sophisticated..."
+              className="flex-grow bg-transparent px-4 py-3 outline-none text-lg font-medium"
+              disabled={isProcessing}
+            />
             <button 
               onClick={handleAddEntry}
               disabled={isProcessing || !inputValue.trim()}
-              className="bg-sky-600 hover:bg-sky-700 active:scale-95 disabled:opacity-50 disabled:scale-100 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-sky-100 transition-all flex items-center justify-center gap-3"
+              className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50"
             >
-              {isProcessing ? (
-                <>
-                  <i className="fas fa-circle-notch fa-spin"></i>
-                  <span>PROSES...</span>
-                </>
-              ) : (
-                <>
-                  <i className="fas fa-magic"></i>
-                  <span>TERJEMAHKAN</span>
-                </>
-              )}
+              {isProcessing ? <i className="fas fa-spinner fa-spin"></i> : 'Simpan'}
             </button>
           </div>
-          <p className="mt-3 text-xs text-slate-400 italic flex items-center gap-2">
-            <i className="fas fa-info-circle"></i>
-            Tip: Tekan "Enter" pada keyboard untuk menambah kata dengan cepat.
-          </p>
         </div>
+      </header>
 
-        {/* Table Controls */}
-        <div className="flex justify-between items-end mb-4 px-2">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <i className="fas fa-list-ul text-sky-500"></i>
-            Daftar Kata Anda
-          </h2>
-          {entries.length > 0 && (
-            <button 
-              onClick={clearAll}
-              className="text-xs font-bold text-rose-500 hover:text-rose-700 flex items-center gap-1 transition-colors px-3 py-1 bg-rose-50 rounded-lg"
-            >
-              <i className="fas fa-trash-alt"></i>
-              HAPUS SEMUA
-            </button>
+      {/* Table Section */}
+      <main className="max-w-6xl w-full mx-auto px-4 pb-20">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="font-bold text-slate-700 flex items-center gap-2">
+            <i className="fas fa-list text-indigo-500"></i>
+            Daftar Kata ({total})
+          </h3>
+          {total > 0 && (
+            <button onClick={clearAll} className="text-xs font-bold text-rose-500 hover:underline">Hapus Semua</button>
           )}
         </div>
 
-        {/* Vocabulary Table Card */}
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 overflow-hidden border border-slate-200">
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-900 text-white">
-                  <th className="py-5 px-6 font-bold uppercase text-[10px] tracking-widest w-16 text-center border-r border-slate-800">No</th>
-                  <th className="py-5 px-6 font-bold uppercase text-[10px] tracking-widest w-1/4">English</th>
-                  <th className="py-5 px-6 font-bold uppercase text-[10px] tracking-widest w-1/4">Indonesia</th>
-                  <th className="py-5 px-6 font-bold uppercase text-[10px] tracking-widest text-center">Status</th>
-                  <th className="py-5 px-6 font-bold uppercase text-[10px] tracking-widest">Keterangan</th>
-                  <th className="py-5 px-6 font-bold uppercase text-[10px] tracking-widest text-center">Aksi</th>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase">Bahasa Inggris</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase">Terjemahan</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase">Keterangan AI</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase text-center">Hafal?</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase text-center">Hapus</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {entries.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-24 text-center">
-                      <div className="flex flex-col items-center gap-4 opacity-30">
-                        <i className="fas fa-folder-open text-6xl text-slate-300"></i>
-                        <div className="text-slate-500">
-                          <p className="text-xl font-bold">Belum ada data</p>
-                          <p className="text-sm">Mulai ketik kata di atas untuk belajar!</p>
-                        </div>
-                      </div>
+                    <td colSpan={5} className="py-20 text-center text-slate-400 italic">
+                      Belum ada kata. Coba ketik di atas atau import dari link!
                     </td>
                   </tr>
                 ) : (
-                  entries.map((entry, index) => (
-                    <tr 
-                      key={entry.id} 
-                      className={`group hover:bg-sky-50/50 transition-all duration-300 ${entry.isMemorized ? 'bg-emerald-50/30' : ''}`}
-                    >
-                      <td className="py-5 px-6 text-center text-slate-400 font-bold text-sm bg-slate-50/50 group-hover:bg-sky-100/50 border-r border-slate-100">
-                        {entries.length - index}
+                  entries.map(entry => (
+                    <tr key={entry.id} className={`group hover:bg-slate-50 transition-colors ${entry.isMemorized ? 'bg-emerald-50/30' : ''}`}>
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-lg font-bold ${entry.isMemorized ? 'text-emerald-700 line-through opacity-50' : 'text-slate-900'}`}>
+                            {entry.english}
+                          </span>
+                          {entry.isNew && (
+                            <span className="bg-amber-100 text-amber-700 text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse">BARU</span>
+                          )}
+                        </div>
                       </td>
-                      <td className="py-5 px-6">
-                        <span className={`text-lg font-bold block ${entry.isMemorized ? 'text-emerald-700' : 'text-slate-900'}`}>
-                          {entry.english}
+                      <td className="px-6 py-5">
+                        <span className={`font-semibold ${entry.isLoading ? 'text-slate-300' : 'text-slate-700'}`}>
+                          {entry.indonesian}
                         </span>
                       </td>
-                      <td className="py-5 px-6">
-                        {entry.isLoading ? (
-                          <div className="flex items-center gap-2 text-sky-500 font-medium animate-pulse">
-                            <i className="fas fa-sparkles"></i>
-                            Menerjemahkan...
-                          </div>
-                        ) : (
-                          <span className="text-slate-700 font-semibold">{entry.indonesian}</span>
-                        )}
+                      <td className="px-6 py-5 max-w-xs">
+                        <p className="text-sm text-slate-500 leading-relaxed italic">{entry.note}</p>
                       </td>
-                      <td className="py-5 px-6 text-center">
+                      <td className="px-6 py-5 text-center">
                         <button 
-                          onClick={() => toggleMemorized(entry.id)}
-                          aria-label="Toggle memorized"
-                          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 transform active:scale-90 ${
-                            entry.isMemorized 
-                              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 rotate-0' 
-                              : 'bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-400 -rotate-3'
+                          onClick={() => setEntries(prev => prev.map(e => e.id === entry.id ? {...e, isMemorized: !e.isMemorized} : e))}
+                          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                            entry.isMemorized ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300 hover:bg-slate-200'
                           }`}
                         >
-                          <i className={`fas ${entry.isMemorized ? 'fa-check-circle text-xl' : 'fa-circle-check'}`}></i>
+                          <i className="fas fa-check"></i>
                         </button>
                       </td>
-                      <td className="py-5 px-6">
-                        <p className={`text-sm leading-relaxed ${entry.isLoading ? 'text-slate-300 italic' : 'text-slate-600'}`}>
-                          {entry.note}
-                        </p>
-                      </td>
-                      <td className="py-5 px-6 text-center">
+                      <td className="px-6 py-5 text-center">
                         <button 
-                          onClick={() => removeEntry(entry.id)}
-                          className="opacity-0 group-hover:opacity-100 w-10 h-10 rounded-xl text-slate-300 hover:bg-rose-50 hover:text-rose-500 transition-all flex items-center justify-center mx-auto"
-                          title="Hapus"
+                          onClick={() => setEntries(prev => prev.filter(e => e.id !== entry.id))}
+                          className="text-slate-300 hover:text-rose-500 transition-colors"
                         >
-                          <i className="fas fa-trash-alt"></i>
+                          <i className="fas fa-trash"></i>
                         </button>
                       </td>
                     </tr>
@@ -270,27 +233,66 @@ const App: React.FC = () => {
             </table>
           </div>
         </div>
-
-        {/* Legend / Info */}
-        <div className="mt-8 flex flex-wrap justify-center gap-6">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest">
-            <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
-            Sudah Hafal
-          </div>
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest">
-            <span className="w-3 h-3 rounded-full bg-slate-200"></span>
-            Belum Hafal
-          </div>
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest">
-            <span className="w-3 h-3 rounded-full bg-sky-500 animate-pulse"></span>
-            Proses AI
-          </div>
-        </div>
       </main>
 
-      <footer className="py-8 bg-slate-900 text-slate-500 text-center border-t border-slate-800">
-        <p className="text-sm">© 2024 KamusAI Vocabulary Assistant</p>
-        <p className="text-[10px] mt-1 font-bold tracking-widest opacity-50">BUILT WITH GOOGLE GEMINI AI TECHNOLOGY</p>
+      {/* Modal Import */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <i className="fas fa-wand-magic-sparkles text-indigo-500"></i>
+                Import Cerdas
+              </h3>
+              <button onClick={() => !isImporting && setShowImportModal(false)} className="text-slate-400 hover:text-slate-600">
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <p className="text-sm text-slate-500 mb-4">
+                Tempel link berita (BBC, CNN, dll) atau teks panjang. AI akan memilihkan kata-kata penting untuk kamu pelajari.
+              </p>
+              <textarea 
+                value={importValue}
+                onChange={(e) => setImportValue(e.target.value)}
+                placeholder="Tempel Link atau Teks di sini..."
+                className="w-full h-40 bg-slate-50 rounded-2xl p-4 border border-slate-200 focus:ring-2 ring-indigo-500/20 outline-none resize-none mb-4 font-medium"
+                disabled={isImporting}
+              ></textarea>
+              
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowImportModal(false)}
+                  className="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-50 rounded-xl transition-all"
+                  disabled={isImporting}
+                >
+                  Batal
+                </button>
+                <button 
+                  onClick={handleBulkImport}
+                  disabled={isImporting || !importValue.trim()}
+                  className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-200"
+                >
+                  {isImporting ? (
+                    <>
+                      <i className="fas fa-circle-notch fa-spin"></i>
+                      Menganalisis...
+                    </>
+                  ) : (
+                    <>Mulai Import</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Footer Info */}
+      <footer className="text-center py-10 text-slate-400 text-xs font-medium">
+        <p>Data tersimpan otomatis di browsermu.</p>
+        <p className="mt-1 uppercase tracking-widest">Powered by Gemini Pro & Google Search</p>
       </footer>
     </div>
   );
